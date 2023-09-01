@@ -5,39 +5,39 @@ Description: Site specific code changes for forlagid.is
 
 */
 const DEVELOPMENT = TRUE;  // Email address to developer -> if active
-
 const DEVELOPER = 'islandsvefir@islandsvefir.is';  // Email address to developer -> if active
-//rearrange tabs on single product
 
 add_filter('woocommerce_product_tabs', 'sb_woo_move_description_tab', 98);
-/**
- * Move the description tab in the WooCommerce product page.
- *
- * @param array $tabs Array of tabs in the product page.
- * @return array Modified array of tabs with the description tab moved to a new position.
- */
 function sb_woo_move_description_tab(array $tabs): array
 {
     $tabs['reviews']['priority'] = 1;
     $tabs['additional_information']['priority'] = 5;
     return $tabs;
 }
-
-
-// Add Variation Settings
 add_action('woocommerce_product_after_variable_attributes', 'variation_settings_fields', 10, 3);
-// Save Variation Settings
 add_action('woocommerce_save_product_variation', 'save_variation_settings_fields', 10, 2);
 
 /**
- * Renders the HTML for variation settings fields.
- *
- * @param int $loop The loop counter for the variation.
- * @param array $variation_data The variation data.
- * @param object $variation The variation object.
+ * Customizes Woocommerce product variation settings with additional fields.
+ * 
+ * This function adds custom fields to the settings of each Woocommerce product variation. The function is specifically
+ * designed for adding unique identifiers related to product variations, including ISBN numbers, page number count, 
+ * publication years, e-book IDs, and hidden data.
+ * 
+ * Five different sources of data are covered, each catering for a different field. These sources include a Text Field, 
+ * Number Fields and a hidden input field.
+ * 
+ * All fields implement the Woocommerce wp_text_input method which is a utility function provided by Woocommerce to create
+ * input fields. Each field is configured with a unique 'id', 'label', 'desc_tip' status, 'description' and a 'value' 
+ * derived from post meta data. The number fields also possess 'custom_attributes' for additional html field attributes.
+ * 
+ * @param int $loop Index of the current instance in the loop from the calling function.
+ * @param array $variation_data Array of metadata for each product variation.
+ * @param object $variation A WP_Post instance representing the current product variation.
  *
  * @return void
  */
+
 function variation_settings_fields(int $loop, array $variation_data, object $variation): void
 {
     // Text Field
@@ -65,7 +65,6 @@ function variation_settings_fields(int $loop, array $variation_data, object $var
             )
         )
     );
-    // Number Field
     woocommerce_wp_text_input(
         array(
             'id' => '_utg_number_field[' . $variation->ID . ']',
@@ -79,7 +78,6 @@ function variation_settings_fields(int $loop, array $variation_data, object $var
             )
         )
     );
-    // Number Field
     woocommerce_wp_text_input(
         array(
             'id' => 'epub_uuid[' . $variation->ID . ']',
@@ -93,8 +91,6 @@ function variation_settings_fields(int $loop, array $variation_data, object $var
             )
         )
     );
-
-    // Hidden field
     woocommerce_wp_hidden_input(
         array(
             'id' => '_hidden_field[' . $variation->ID . ']',
@@ -102,21 +98,31 @@ function variation_settings_fields(int $loop, array $variation_data, object $var
         )
     );
 }
-
 /**
- * Save new fields for variations
+ * Updates the meta fields of a WooCommerce product variation.
  *
-
+ * This function retrieves form data submitted in the backend. This form data is associated with
+ * additional product variation fields added in `variation_settings_fields()` function.
+ * Currently, the form data that is retrieved includes:
+ * - ISBN text field: ISBN number of the product.
+ * - BLS number field: Number of pages in the book.
+ * - UTG number field: Release year of the book.
+ * - EPUB UUID: Identification for the electronic version of the book.
+ * - Hidden field: Contains hidden data associated with the product variation.
+ *
+ * For each piece of data, it checks if the data is not empty, and if so, it updates the
+ * corresponding meta field for the product variation. The esc_attr() function is used to 
+ * sanitize the text field before saving it.
+ *
+ * @param int $post_id The ID of the post for which the meta fields need to be updated.
  */
 
 function save_variation_settings_fields($post_id): void
 {
-    // Text Field
     $text_field = $_POST['_isbn_text_field'][$post_id];
     if (!empty($text_field)) {
         update_post_meta($post_id, '_isbn_text_field', esc_attr($text_field));
     }
-    // Number Field
     $number_field = $_POST['_bls_number_field'][$post_id];
     if (!empty($number_field)) {
         update_post_meta($post_id, '_bls_number_field', esc_attr($number_field));
@@ -129,21 +135,22 @@ function save_variation_settings_fields($post_id): void
     if (!empty($number_field)) {
         update_post_meta($post_id, 'epub_uuid', esc_attr($number_field));
     }
-
-
-    // Hidden field
     $hidden = $_POST['_hidden_field'][$post_id];
     if (!empty($hidden)) {
         update_post_meta($post_id, '_hidden_field', esc_attr($hidden));
     }
 }
-
-//hide Sale badge on products
 remove_action('woocommerce_before_shop_loop_item_title', 'woocommerce_show_product_loop_sale_flash', 10);
-
-//TODO: Spurning hvort við  notum þetta. Fer eftir
-
 add_action('add_meta_boxes', 'order_metabox');
+/**
+ * Adds a custom meta box to a shop_order post type.
+ *
+ * This function utilizes add_meta_box() WordPress function to append a custom meta box 
+ * to a 'shop_order' post type. The box is labeled 'Order Meta' and contains custom display
+ * method 'display_custom_metabox' that will render HTML contents inside the meta box.
+ *
+ * @return void
+ */
 
 function order_metabox(): void
 {
@@ -154,6 +161,24 @@ function order_metabox(): void
         'shop_order'
     );
 }
+/**
+ * This function extracts and displays metadata associated with a provided post object.
+ * 
+ * The function gets the post metadata using the WordPress function get_post_meta(), using the ID property of the provided 
+ * post object as the argument. If the metadata is not empty, then the function iterates over every metadata key-value 
+ * pair and outputs them in 'key: value' wrapped in a paragraph HTML element.
+ * 
+ * Specifically, for each key-value pair in the metadata array, the key is displayed in bold (enclosed in '<strong>' tags)
+ * followed by a colon, and then the value is displayed. The key-value pair is enclosed within a paragraph tag '<p>' to
+ * preserve the formatting.
+ * 
+ * This function is typically used in the context of 'shop_order' parent posts in WooCommerce to display order metadata in 
+ * a readable manner within an added metabox.
+ * 
+ * @param object $post Post object that will have its metadata retrieved and displayed.
+ *
+ * @return void
+ */
 
 function display_custom_metabox($post): void
 {
@@ -165,23 +190,25 @@ function display_custom_metabox($post): void
     }
 }
 
-//TODO: Rearrange with plugin... Sjá uppröðun ---> setja land aftast í uppröðunina - mögulega taka út state
-// Setja city næst aftast
-//
-// Rearrange fields in checkout - as of 17.12.18
-add_filter('woocommerce_default_address_fields', 'bbloomer_reorder_checkout_fields');
-function bbloomer_reorder_checkout_fields($fields): array
+add_filter('woocommerce_default_address_fields', 'forlagid_woocommerce_reorder_checkout_fields');
+/**
+ * Reorders Woocommerce's default checkout fields for the Forlagid online store.
+ *
+ * This function modifies the priority of Woocommerce's checkout fields to customize their order. Checkout field with
+ * lower priority will be displayed before fields with higher priority.
+ * 
+ * Specifically, the function changes the priorities of four checkout fields, namely 'address_1', 'address_2', 
+ * 'postcode' and 'country'.
+ * 
+ * The function then returns the altered fields array.
+ *
+ * @param array $fields Default checkout fields provided by WooCommerce.
+ * 
+ * @return array Modified checkout fields with updated priority.
+ */
+
+function forlagid_woocommerce_reorder_checkout_fields($fields): array
 {
-    // default priorities:
-    // 'first_name' - 10
-    // 'last_name' - 20
-    // 'company' - 30
-    // 'country' - 40
-    // 'address_1' - 50
-    // 'address_2' - 60
-    // 'city' - 70
-    // 'state' - 80
-    // 'postcode' - 90
     $fields['address_1']['priority'] = 31;
     $fields['address_2']['priority'] = 32;
     $fields['postcode']['priority'] = 37;
@@ -189,15 +216,20 @@ function bbloomer_reorder_checkout_fields($fields): array
     return $fields;
 }
 
-// Adding an ACF Options page -  //TODO:spurning hvort þetta þurfi
 if (function_exists('acf_add_options_page')) {
     acf_add_options_page();
 }
+/**
+ * Returns the Icelandic currency symbol for the specified currency.
+ *
+ * This function checks if the passed currency is Icelandic króna ('ISK'). If yes, it sets the currency symbol to 'kr.'.
+ * In case of different currency, function doesn't modify the $currency_symbol and returns its initial value.
+ *
+ * @param string $currency_symbol Initial value of the currency symbol.
+ * @param string $currency The currency to display.
+ * @return string The currency symbol for the passed currency.
+ */
 
-//TODO: Þetta er eitthvað LEGACY, er ekki viss um að þetta sé notað á síðunni
-
-//Breyta úr Kr í kr
-//TODO: Ég veit ekki afhverju?
 function icelandic_currency_symbol($currency_symbol, $currency)
 {
     if ($currency == 'ISK') {
@@ -206,19 +238,40 @@ function icelandic_currency_symbol($currency_symbol, $currency)
 
     return $currency_symbol;
 }
-
 add_filter('woocommerce_currency_symbol', 'icelandic_currency_symbol', 30, 2);
-
 remove_action('woocommerce_after_single_product_summary', 'woocommerce_output_product_data_tabs', 10);
-
 add_action('woocommerce_after_single_product_summary', 'custom_book_author', 15);
-//TODO: Er þetta notað núna ?  Kannnski að hafa skýrara nafn
+/**
+ * The custom_book_author function, provided by the Forlagid Plugin, is responsible for displaying the author of a book product. 
+ * This function utilizes the list_book_author() function (not documented here), which presumably retrieves and organizes 
+ * the information of the author associated with a particular book and then displays it to the user. 
+ * Please note that the list_book_author function needs to be defined in the global scope for custom_book_author to function properly.
+ *
+ * As it is attached to 'woocommerce_after_single_product_summary' action hook with a priority of 15, 
+ * this function is executed after the single product summary in WooCommerce, aiding in the display of book author information.
+ *
+ * This function does not accept any parameters and does not return any value.
+ *
+ * @return void
+ */
+
 function custom_book_author(): void
 {
     list_book_author();
 }
+/**
+ * Renders HTML section and initiates JavaScript function getDatalab() from FS object.
+ * 
+ * The function creates an HTML div container with an id "forlagidsearch_datalab". This container acts as a hook
+ * for display components generated from the JS function.
+ * 
+ * Once the HTML document is fully loaded, the jQuery $(document).ready() statement is used to execute a 
+ * JavaScript anonymous function. Within this, the getDatalab() function from the FS object is invoked.
+ * The input to getDatalab() is PHP's get_the_ID() function, used to fetch the current WordPress post ID.
+ * 
+ * @return void
+ */
 
-// MN: 2020.10.12,  hætti að nota wordpress+sql, not forlagidsearch í staðinn.
 function list_book_author(): void
 {
     ?>
@@ -231,47 +284,18 @@ function list_book_author(): void
     <?php
 }
 
-//TODO: Ef það er verið að nota owl á síðunni þá láta þetta vera annnars má þetta fara
-add_action('wp_enqueue_scripts', 'my_styles_method');
-function my_styles_method(): void
-{
-    wp_enqueue_style(
-        'custom-style',
-        get_bloginfo('url') . '/wp-content/plugins/forlagid-plugin/owl-carousel/owl.carousel.css'
-    );
-    wp_enqueue_style(
-        'custom-owl-style',
-        get_bloginfo('url') . '/wp-content/plugins/forlagid-plugin/owl-carousel/owl.theme.css'
-    );
-
-    wp_enqueue_style(
-        'custom-grid-style',
-        get_bloginfo('url') . '/wp-content/plugins/forlagid-plugin/gridism.css'
-    );
-    wp_register_script('owl-js', get_bloginfo('url') . '/wp-content/plugins/forlagid-plugin/owl-carousel/jquery-1.9.1.min.js', array('jquery'), '1', false);
-    wp_register_script('owl-carousel-js', get_bloginfo('url') . '/wp-content/plugins/forlagid-plugin/owl-carousel/owl.carousel.js', array('jquery'), '1', false);
-    wp_register_script('slick-js', '//code.jquery.com/jquery-2.2.0.min.js', array('jquery'), '1', false);
-    wp_register_script('slick-carousel-js', '//cdn.jsdelivr.net/jquery.slick/1.6.0/slick.min.js', array('jquery'), '1', false);
-    wp_enqueue_script('owl-js');
-    wp_enqueue_script('owl-carousel-js');
-    //wp_enqueue_script('slick-carousel-js');
-}
-
-// ---------------------------------
-// ---------------------------------
-// ---------------------------------
-
-//TODO: Email secondary field verification - hægt er að gera þetta með plugini
-// jafnvel endurskrifa og gera ajax eða bara jquery
-//adds a secondary email field to verify that email address
-//add email verification
 add_filter('woocommerce_checkout_fields', 'kg_add_email_verification_field_checkout');
 /**
- * Adds email verification field to the checkout form.
+ * Adds an email verification field to the checkout fields.
  *
- * @param array $fields An array of checkout fields.
- * @return array An updated array of checkout fields.
+ * This function expands the provided fields with an additional email verification field, along with altering the class
+ * of the existing "billing_email" field. "billing_em_ver" is added with several properties including the label name,
+ * requirement status, associated class, form clearing preference, and the priority level in display.
+ *
+ * @param array $fields Initial array of fields to expand with an extra field.
+ * @return array $fields Array after inserting the email verification field.
  */
+
 function kg_add_email_verification_field_checkout(array $fields): array
 {
     $fields['billing']['billing_email']['class'] = array('form-row-email');
@@ -284,12 +308,22 @@ function kg_add_email_verification_field_checkout(array $fields): array
     );
     return $fields;
 }
-
-//TODO: Framhald af sama kóða
-//hugsanlega betra að gera þetta í jquery
-// 3) Generate error message if field values are different
-
 add_action('woocommerce_checkout_process', 'kg_matching_email_addresses');
+/**
+ * Checks whether the provided 'billing_email' and 'billing_em_ver' are matching.
+ * 
+ * The function 'kg_matching_email_addresses' retrieves the values of 'billing_email' and 'billing_em_ver' from
+ * the '$_POST' global array. Then it compares the two email fields for equality. If the emails are not equal,
+ * it uses the 'wc_add_notice' function to add a WooCommerce notice with a message of 'Innslegin netföng passa ekki'
+ * which means "Entered emails do not match" in English and assigns it with an 'error' notice type.
+ *
+ * This function is typically associated with WooCommerce checkout, where it validates user provided billing email
+ * addresses for a purchase. The function does not return anything as the notice is passed directly to WooCommerce
+ * to handle the display.
+ * 
+ * @return void
+ */
+
 function kg_matching_email_addresses(): void
 {
     $email1 = $_POST['billing_email'];
@@ -298,16 +332,23 @@ function kg_matching_email_addresses(): void
         wc_add_notice(__('Innslegin netföng passa ekki', 'kg'), 'error');
     }
 }
-
-// ---------------------------------
-// ---------------------------------
-// ---------------------------------
-
-//TODO: Fela ákveðna greiðslumáta eftir skilyrðum, gera með pluginni
 /**
- * @param array $available_gateways
- * @return array
+ * This function modifies the list of available gateways based on the customer's billing country.
+ *
+ * Specifically, if the customer's billing country is Iceland (expressed by the country code 'IS'), the 'bacs' gateway
+ * (which stands for Bank Account Clearing System) will not be made available to the customer.
+ * 
+ * It first checks if the customer object exists and if the page accessing this function is not an admin page.
+ * It also checks for the existence of the 'bacs' gateway in the list of available gateways.
+ * If any of these conditions fail, or if the customer's billing country is Iceland, it returns the available gateways
+ * without any modification.
+ *
+ * Otherwise, it removes the 'bacs' gateway from the list and then returns the modified list.
+ *
+ * @param array $available_gateways An associative array where keys are gateway ids and values are gateway objects.
+ * @return array The modified array of available gateways.
  */
+
 function payment_gateway_disable_country(array $available_gateways): array
 {
     $customer = WC()->customer;
@@ -322,6 +363,26 @@ function payment_gateway_disable_country(array $available_gateways): array
 
 add_filter('woocommerce_available_payment_gateways', 'payment_gateway_disable_country');
 
+/**
+ * Adjusts available payment gateways based on chosen shipping methods.
+ *
+ * This function checks if it's running in an admin context or if the WooCommerce session is non-existent. If so, it
+ * returns the available payment gateways without any modifications.
+ *
+ * It retrieves the customer's chosen shipping methods from the WooCommerce session. If no shipping methods are chosen
+ * (i.e., the retrieved value is not an array), the function again returns the available payment gateways without any
+ * modifications.
+ *
+ * Otherwise, it checks each chosen shipping method against a list of shipping methods associated with specific payment
+ * gateways to remove. If a chosen shipping method matches a method in this list, then the associated payment gateways
+ * are removed from the set of available payment gateways.
+ *
+ * Finally, it returns the possibly modified set of available payment gateways.
+ *
+ * @param array $gateways The list of payment gateways passed in for possible modification.
+ * @return array The possibly modified list of payment gateways.
+ */
+
 function forlagid_available_payment_gateways($gateways)
 {
     if (is_admin() || is_null(WC()->session)) {
@@ -332,17 +393,13 @@ function forlagid_available_payment_gateways($gateways)
     if (!is_array($chosen_shipping_rates)) {
         return $gateways;
     }
-
     $shippingRatesToRemoveSpecificGateways = [
-        // Hide Valitor, Millifærsla, Borgun, and Netgiro when Póstkrafa table rate is chosen
         'table_rate:6:8' => ['bacs', 'valitor', 'borgun', 'netgiro'],
         'table_rate:6:7' => ['bacs', 'valitor', 'borgun', 'netgiro'],
         'table_rate:6:9' => ['bacs', 'valitor', 'borgun', 'netgiro'],
         'table_rate:15:28' => ['bacs', 'valitor', 'borgun', 'netgiro'],
         'table_rate:15:29' => ['bacs', 'valitor', 'borgun', 'netgiro'],
         'table_rate:15:30' => ['bacs', 'valitor', 'borgun', 'netgiro'],
-
-        // Hide Póstkrafa when Póstsending, Sótt í verslun and Flýtiþjónusta are chosen
         'local_pickup:3' => ['cod'],
         'local_pickup:14' => ['cod'],
         'table_rate:4:3' => ['cod'],
@@ -355,31 +412,20 @@ function forlagid_available_payment_gateways($gateways)
         'table_rate:13:26' => ['cod'],
         'table_rate:13:25' => ['cod'],
         'table_rate:12:24' => ['cod'],
-
-        // Hide Póstkrafa and Bacs when Póstsending, Sótt í verslun and Flýtiþjónusta are chosen
         'table_rate:12:22' => ['cod', 'bacs'],
-
         'table_rate:12:23' => ['cod'],
-
-        // Hide Póstkrafa when Free shipping is chosen
         'free_shipping:18' => ['cod'],
-
-        // Hide Póstkrafa when Rest of Europe is chosen
         'table_rate:11:16' => ['cod'],
         'table_rate:11:17' => ['cod'],
         'table_rate:11:18' => ['cod'],
-
-        // Hide Póstkrafa when Denmark is chosen
         'table_rate:8:15' => ['cod'],
         'table_rate:8:14' => ['cod'],
         'table_rate:8:13' => ['cod'],
 
-        // Hide Póstkrafa when USA is chosen
         'table_rate:7:10' => ['cod'],
         'table_rate:7:11' => ['cod'],
         'table_rate:7:12' => ['cod'],
 
-        // Hide Póstkrafa when Rest of world is chosen
         'table_rate:16:32' => ['cod'],
         'table_rate:16:31' => ['cod'],
         'table_rate:16:33' => ['cod'],
@@ -569,29 +615,27 @@ Eintak rafbókarinnar er merkt þér með stafrænni vatnsmerkingu og rekjanlegt
 }
 
 add_action('woocommerce_email_after_order_table', 'forlagid_add_ebook_link', 11);
-
-//Grafík Panda - Email um Hljóðbók
-
 /**
- * Add audiobook link to order if item is categorized as "hljodbok".
- *
- * @param WC_Order $order
+ * Displays a custom message with links to the app and browser for audio books in a customer's order, if any exist.
+ * 
+ * forlagid_add_audiobook_link() is a function that iterates through all items in a customer's order.
+ * If an item is an audiobook (detected by the 'pa_gerd' meta data having a value of 'hljodbok'), 
+ * a predefined HTML message is echoed to the user. This message includes links to an app and a web application 
+ * where the audiobook can be streamed.
+ * 
+ * The inclusion of the ':void' at the end of the function declaration indicates that this function does not 
+ * return any value.
+ * 
+ * @param WC_Order $order A WooCommerce Order object which encapsulate all the order data retrieved from storage.
+ * @return void
  */
+
 function forlagid_add_audiobook_link(WC_Order $order): void
 {
     $items_rb = $order->get_items();
 
     foreach ($items_rb as $item) {
-        /**
-         * Class Item
-         *
-         * Represents an item in a system.
-         *
-         * @property int $id The unique identifier for the item.
-         * @property string $name The name of the item.
-         * @property float $price The price of the item.
-         * @property int $quantity The current quantity of the item in stock.
-         */
+
         if ('hljodbok' === $item->get_meta('pa_gerd')) {
             $message = '<h3>Streymis-hljóðbókin þín er nú aðgengileg í <a href="https://forlagid.is/hlusta">appinu</a> eða <a href="https://hlusta.forlagid.is">vafra.</a></h3> <br/>';
             $message .= 'Athugaðu að þú skráir þig inn þar með sömu notendaupplýsingum og á Forlagsvefnum.<br/>';
@@ -602,9 +646,19 @@ function forlagid_add_audiobook_link(WC_Order $order): void
 }
 
 add_action('woocommerce_email_before_order_table', 'forlagid_add_audiobook_link', 11);
+
 /**
- * @param WC_Order $order
+ * Adds a thank you note with ebook link after successfully placing an order.
+ *
+ * This function gets all items from an order then process them one-by-one. The order type should be WC_Order,
+ * a class provided by Woocommerce. Each item will be passed over to the 'process_item' function. The function 
+ * doesn't return anything hence the return type is 'void'. 
+ *
+ * @param WC_Order $order The order in which all items were placed.
+ *
+ * @return void
  */
+
 function forlagid_add_thankyou_ebook_link(WC_Order $order): void
 {
 
@@ -614,9 +668,20 @@ function forlagid_add_thankyou_ebook_link(WC_Order $order): void
     }
 }
 
+
 /**
- * @param WC_Order_Item $item
+ * Processes a WooCommerce Order Item. 
+ *
+ * This function checks if the meta character for the order item matches 'rafbok'. If it does, two messages are printed out. 
+ * These messages contain the validity of the order (which is 7 days) and the digital rights associated when the customer 
+ * purchases a digital Book copy. This digital copy is now marked to the customer with a digital watermark.
+ * The customer also receives an email from the company with these details.
+ * 
+ * @param WC_Order_Item $item The WooCommerce Order Item object to process.
+ *
+ * @return void
  */
+
 function process_item(WC_Order_Item $item): void
 {
     if ('rafbok' === $item->get_meta('pa_gerd')) {
@@ -630,6 +695,29 @@ function process_item(WC_Order_Item $item): void
 }
 
 add_action('woocommerce_thankyou_virtual', 'forlagid_add_thankyou_ebook_link', 11);
+
+/**
+ * Generates the ebook download link.
+ * 
+ * This function is designed to generate a secure download link for a given ebook. It takes three parameters as input:
+ * an ID for the ebook file (epub_uuid), an order ID from the store (store_order_id), and a secret code from the store
+ * (store_secret).
+ * 
+ * These parameters are URL encoded for safe transmission and combined into a string of parameters, which is then hashed
+ * using HMAC with the SHA256 algorithm. The resulting hash is combined with the original parameters to form the full
+ * parameter list for the API call.
+ * 
+ * A GET request is then made to the ebook API with the parameter string, and the output is processed to retrieve the 
+ * download link.
+ * 
+ * If the download link is not found in the API response, an error is logged, and the function returns false. If the
+ * download link is found, it is returned by the function.
+ * 
+ * @param string $epub_uuid  The UUID of the ebook file.
+ * @param string $store_order_id  The ID of the current order.
+ * @param string $store_secret  The secret associated with the store that is making the request.
+ * @return string|false The ebook download link on success, false on failure.
+ */
 
 function forlagid_get_ebook_link($epub_uuid, $store_order_id, $store_secret)
 {
@@ -658,17 +746,25 @@ function forlagid_get_ebook_link($epub_uuid, $store_order_id, $store_secret)
 }
 
 /**
- * @param array $response
- * @param int $order_id
+ * Handles the occurrence of an error during the ePub process for a specified order. The function retrieves and formats 
+ * the error message from the given response, then sends an administrative email if an order ID is supplied.
  *
- * @return bool|string
- */
-/**
- * @param array $response
- * @param int $order_id
+ * First, the function retrieves the body of the error response and trims any whitespace. The resulting string is then
+ * passed to another function get_error_message, which retrieves the human-readable error message.
  *
- * @return bool|string
+ * If a message is received and the provided order ID is not 0 (indicating the absence of an order), an administrative 
+ * email is sent with the details of the response, the error message, and the order ID using the function 
+ * send_admin_email.
+ *
+ * The function returns the error message, allowing the caller to handle response and message.
+ *
+ * @param array $response Array containing the response from an attempt to handle ePub for an order. 
+ * @param int $order_id (optional) The order ID associated with the response. Default is 0, indicating no actual order.
+ *
+ * @return bool|string The message indicating the error from the response. If no error is present, the function returns 
+ *                     FALSE indicating that no error occurred.
  */
+
 function forlagid_epub_handle_error(array $response, int $order_id = 0): bool|string
 {
     $error = trim(wp_remote_retrieve_body($response));
@@ -681,13 +777,18 @@ function forlagid_epub_handle_error(array $response, int $order_id = 0): bool|st
     return $message;
 }
 
+
 /**
- * Returns the error message according to the error type
+ * Fetches the error message for a given error.
  *
- * @param string $error
+ * This function uses the error string passed to it to return the corresponding error message
+ * from an associative array of error messages. If the error string is not found in 
+ * the associative array, a default error message is returned.
  *
- * @return string
+ * @param string $error The error for which an error message is needed.
+ * @return string The corresponding error message or a default message in case of non-existence.
  */
+
 function get_error_message(string $error): string
 {
     $errorMessages = [
@@ -704,13 +805,22 @@ function get_error_message(string $error): string
     return $errorMessages[$error] ?? 'The response from the server was empty';
 }
 
+
 /**
- * Sends an email to the administrator when an error occurs
+ * Sends an email to the administration/main developer in case of an error during the book's delivery process.
  *
- * @param array $response
- * @param string $message
- * @param int $order_id
+ * This function sends an email notification to either the main developer or the admin email(as defined in WordPress options), 
+ * notifying of a delivery error with specific information such as error message and the server response code. This
+ * notification is only sent if a delivery error was not already sent(process validated through a post meta) for the given 
+ * order. The email contents are then prepared and sent out via the wp_mail function.
+ *
+ * @param array $response server response which contains the status of the delivery process.
+ * @param string $message error message that describes the failed delivery.
+ * @param int $order_id the unique identification number of the errored order.
+ * 
+ * @return void
  */
+
 function send_admin_email(array $response, string $message, int $order_id): void
 {
     $notification_sent = get_post_meta($order_id, 'forlagid_error_notification_sent', true);
@@ -728,15 +838,29 @@ function send_admin_email(array $response, string $message, int $order_id): void
         add_post_meta($order_id, 'forlagid_error_notification_sent', 1);
     }
 }
-/**
- * Hide shipping methods when certain shipping is available.
- * - Póstkrafa í Flýtiþjónusta when free shipping is available.
- * - Póstkrafa when free shipping is available.
- * - Other shipping when free shipping is available.
- */
+
 
 add_filter('woocommerce_package_rates', 'hide_shipping_when_free_available', 10, 2);
 
+/**
+ * Function: hide_shipping_when_free_available
+ *
+ * This is a custom function used for managing shipping methods in WooCommerce.
+ * It checks for available shipping methods and hides the others, prioritising free shipping.
+ * This function works based on a predefined set of shipping rules.
+ *
+ * Shipping rules are an associative array wherein each key-value pair represents a rule. 
+ * The key is the free shipping method identifier, whereas its corresponding value is an array of
+ * shipping method identifiers that should be removed if the free shipping method is available.
+ *
+ * The function iterates over the defined shipping rules. 
+ * If a free shipping method is available in the rates, its associated shipping methods, 
+ * defined in the rules, are removed from the rates.
+ *
+ * @param array $rates Array of available shipping rates where key is shipping method ID and value is WC_Shipping_Rate instance
+ * @param array $package Contains an array of the package contents, its subtotal, etc
+ * @return array Returns modified array of shipping rates
+ */
 function hide_shipping_when_free_available($rates, $package)
 {
     $shippingRules = [
@@ -777,9 +901,21 @@ function hide_shipping_when_free_available($rates, $package)
 
 add_action('woocommerce_thankyou', 'forlagid_woocommerce_auto_complete_free_order');
 
+/**
+ * Completes free WooCommerce orders automatically.
+ *
+ * This function checks if the passed order ID is valid. If not, it returns immediately.
+ * If the order ID is valid, it fetches the order details using the WooCommerce function wc_get_order() and then 
+ * attempts to auto-complete the order using the forlagid_woocommerce_auto_complete_if_free() function.
+ *
+ * @param int $orderId ID of the order to be processed.
+ *
+ * @return void
+ */
+
 function forlagid_woocommerce_auto_complete_free_order(int $orderId): void
 {
-    if (!$orderId) {
+   if (!$orderId) {
         return;
     }
 
@@ -795,14 +931,25 @@ function forlagid_woocommerce_auto_complete_if_free(WC_Order $order): void
 }
 
 
+
 /**
- * Returns the tooltip text for a given shipping method.
+ * Provides tooltips for various shipping methods to end users.
  *
- * @param object $method The shipping method object.
- * @param int $index The index of the shipping method in the list.
+ * This function maps specific shipping methods to their relevant tooltips. The mapping includes:
+ * - Póstsending to Standard mail
+ * - Sótt í verslun to Local Pickup
+ * - Póstkrafa to Cash on delivery
+ * - Flýtiþjónusta to Express delivery
  *
- * @return void
+ * It generates a tooltip text based on $method object input. If the tooltip text is identified (is not empty), the function
+ * will output a span element with class name 'tooltip', enclosing the tooltip text. The text is also escaped for safety
+ * to avoid cross-site scripting (XSS) vulnerabilities.
+ *
+ * @param object $method The object presenting shipping method.
+ * @param integer $index It refers to the $index of the method in the input array.
+ * @return void A tooltip text wrapped inside a span HTML element, if tooltip text exists.
  */
+
 function forlagid_shipping_method_tooltip_text(object $method, int $index): void
 {
     $methodToTooltipMap = [
@@ -821,6 +968,17 @@ function forlagid_shipping_method_tooltip_text(object $method, int $index): void
 
 add_action('woocommerce_after_shipping_rate', 'forlagid_shipping_method_tooltip_text', 10, 2);
 
+/*
+ * Displays custom information before Woocommerce terms based on chosen shipping method.
+ *
+ * This function checks the chosen shipping method in Woocommerce session data and if it matches 'table_rate:12:22', 
+ * a specific message informing the user about the specifics of this shipping service (express service, same day delivery 
+ * if ordered before 12PM on weekdays, and delivered by Post after 4PM) is displayed. In case the recipient isn't 
+ * available at the time of the delivery, the package is moved to the post office.
+ *
+ * @return void
+ */
+
 function forlagid_before_terms_info(): void
 {
     $chosen_shipping_rates = WC()->session->get('chosen_shipping_methods');
@@ -834,6 +992,27 @@ add_action('woocommerce_checkout_terms_and_conditions', 'forlagid_before_terms_i
 /**
  * Removes the BACS details on the WooCommerce thank you page.
  */
+/**
+ * Function to remove Bank Account Clearing System (BACS) details from the WooCommerce thank you page.
+ *
+ * Initially, this function checks if the necessary WooCommerce function 'WC()' exists. If it doesn't, the function
+ * immediately returns to the calling code without executing the rest of its logic. This step ensures that further 
+ * execution will only occur in the context of a WooCommerce-enabled website.
+ *
+ * It then attempts to get the BACS payment gateway from WooCommerce's registered payment gateways. If it cannot
+ * find the gateway (possibly due to it being unregistered or disabled), it again exits immediately.
+ *
+ * Finally, assuming all previous checks have passed, it removes the action bound to the 'woocommerce_thankyou_bacs' 
+ * hook. This action is responsible for showing the BACS details on the WooCommerce thank you page. As a result,
+ * executing this function will cause those details to no longer be displayed.
+ *
+ * It should be noted that the effect of this function is temporary and lasts only for the duration of the current
+ * request. To permanently hide the details, this function should be called in response to a relevant event or 
+ * within the context of a plugin.
+ *
+ * @return void
+ */
+
 function remove_bacs_details_on_thankyou_page(): void
 {
     // Check if WC function exists.
@@ -855,6 +1034,19 @@ function remove_bacs_details_on_thankyou_page(): void
 
 add_action('woocommerce_loaded', 'remove_bacs_details_on_thankyou_page');
 
+/**
+ * `forlagid_bacs_just_bank_info` alters the instructions of the 'bacs' payment gateway for a specific order.
+ *
+ * This function retrieves available payment gateways in WooCommerce and checks whether the 'bacs' gateway is available.
+ * If it is, the function disables the instructions of the 'bacs' gateway and triggers the 'thank you' page using the 
+ * order ID provided in the parameter. 
+ *
+ * Note: The 'bacs' payment gateway is also known as Bank Account Clearing System, and it is a popular payment gateway 
+ * in WooCommerce which allows payments directly via bank account.
+ * 
+ * @param int $order_id ID of the WooCommerce order for which the payment gateway instructions will be modified. 
+ * @return void
+ */
 function forlagid_bacs_just_bank_info($order_id): void
 {
     $available_gateways = WC()->payment_gateways()->get_available_payment_gateways();
@@ -868,13 +1060,19 @@ function forlagid_bacs_just_bank_info($order_id): void
 
 add_action('woocommerce_thankyou_bacs', 'forlagid_bacs_just_bank_info');
 
+
 /**
- * Force the url for the "continue shopping" link in the cart notification to the shop page.
+ * Forces the woocommerce shop page to redirect to the shop page after the user adds a product to the cart.
+ * 
+ * This function ensures that the user is redirected to the shop page every time they add a product 
+ * to the cart instead of the default woocommerce behavior that directs them to the cart page. It utilizes 
+ * the wc_get_page_permalink function from Woocomerce that retrieves a permalink for a Woocommerce page,
+ * in this case 'shop'. It currently doesn't utilise the $link argument.
  *
- * @param $link
- *
- * @return string
+ * @param string $link The original link that you are replacing. Not used in current implementation.
+ * @return string The url to the shop page.
  */
+
 function forlagid_force_continue_shopping_shop_page($link): string
 {
     return wc_get_page_permalink('shop');
@@ -886,6 +1084,19 @@ add_filter('woocommerce_continue_shopping_redirect', 'forlagid_force_continue_sh
 include_once('inc/class-forlagid-audiobooks.php');
 
 add_filter('validate_username', 'custom_validate_username', 10, 2);
+/**
+ * Validates a username to ensure it contains no spaces.
+ * 
+ * This function checks if a given username contains any spaces using a regular expression. If the username string
+ * contains a space, the function will immediately return false, invalidating the username. If no spaces are found, 
+ * the function returns the original validation state.
+ * 
+ * @param bool $valid The original validation state.
+ * @param string $username The username to validate.
+ *
+ * @return bool Returns false if the username contains spaces, otherwise returns the original validation state.
+ */
+
 function custom_validate_username($valid, $username)
 {
     if (preg_match("/\\s/", $username)) {

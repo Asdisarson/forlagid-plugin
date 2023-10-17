@@ -137,7 +137,7 @@ class Forlagid_Audiobooks
         $password = $request->get_param('password');
         $epoch = $request->get_param('epoch');
         $auth = $request->get_param('auth');
-        $store_secret = '8cc4fdb8-c8aa-11e7-8e93-8f9b0d7632d6';
+        $store_secret = FORLAGID_AUDIOBOOKS_SECRET;
 
         $parameters = http_build_query(array(
             'username' => $username,

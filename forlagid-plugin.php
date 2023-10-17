@@ -1,9 +1,22 @@
 <?php
-/*
-Plugin Name: Forlagid Plugin
-Description: Site specific code changes for forlagid.is
-
-*/
+/**
+ * Plugin Name: Forlagid Audiobooks
+ * Plugin URI: https://islandsvefir.is/
+ * Description: A plugin designed for forlagid.is to handle various aspects of audiobook management. It does product variation management, handles checkbox settings, modifies tables for audiobooks, adjusts login redirects, and sends notifications for purchase or delivery issues. It customizes cart functions and payment gateways for audiobooks.
+ * Version: 1.0.0
+ * Author: Íslandsvefir
+ * Author URI: https://islandsvefir.is/
+ * Requires at least: 7.4
+ * Requires PHP: 8.0
+ *
+ * WC requires at least: 5.7
+ * WC tested up to: 6.3.1
+ *
+ * Text Domain: forlagid-audiobooks
+ * Domain Path: /languages/
+ *
+ * @package Forlagid_Audiobooks
+ */
 const DEVELOPMENT = TRUE;  // Email address to developer -> if active
 const DEVELOPER = 'islandsvefir@islandsvefir.is';  // Email address to developer -> if active
 
@@ -78,19 +91,6 @@ function variation_settings_fields(int $loop, array $variation_data, object $var
             )
         )
     );
-    woocommerce_wp_text_input(
-        array(
-            'id' => 'epub_uuid[' . $variation->ID . ']',
-            'label' => __('ID fyrir Rafbók', 'woocommerce'),
-            'desc_tip' => 'true',
-            'description' => __('ID fyrir Rafbók', 'woocommerce'),
-            'value' => get_post_meta($variation->ID, 'epub_uuid', true),
-            'custom_attributes' => array(
-                'step' => 'any',
-                'min' => '0'
-            )
-        )
-    );
     woocommerce_wp_hidden_input(
         array(
             'id' => '_hidden_field[' . $variation->ID . ']',
@@ -130,10 +130,6 @@ function save_variation_settings_fields($post_id): void
     $number_field = $_POST['_utg_number_field'][$post_id];
     if (!empty($number_field)) {
         update_post_meta($post_id, '_utg_number_field', esc_attr($number_field));
-    }
-    $number_field = $_POST['epub_uuid'][$post_id];
-    if (!empty($number_field)) {
-        update_post_meta($post_id, 'epub_uuid', esc_attr($number_field));
     }
     $hidden = $_POST['_hidden_field'][$post_id];
     if (!empty($hidden)) {
@@ -254,35 +250,6 @@ add_action('woocommerce_after_single_product_summary', 'custom_book_author', 15)
  *
  * @return void
  */
-
-function custom_book_author(): void
-{
-    list_book_author();
-}
-/**
- * Renders HTML section and initiates JavaScript function getDatalab() from FS object.
- * 
- * The function creates an HTML div container with an id "forlagidsearch_datalab". This container acts as a hook
- * for display components generated from the JS function.
- * 
- * Once the HTML document is fully loaded, the jQuery $(document).ready() statement is used to execute a 
- * JavaScript anonymous function. Within this, the getDatalab() function from the FS object is invoked.
- * The input to getDatalab() is PHP's get_the_ID() function, used to fetch the current WordPress post ID.
- * 
- * @return void
- */
-
-function list_book_author(): void
-{
-    ?>
-    <div id="forlagidsearch_datalab"></div>
-    <script>
-        $(document).ready(() => {
-            FS.getDatalab(<?php echo get_the_ID(); ?>);
-        });
-    </script>
-    <?php
-}
 
 add_filter('woocommerce_checkout_fields', 'kg_add_email_verification_field_checkout');
 /**
@@ -619,7 +586,7 @@ add_action('woocommerce_email_after_order_table', 'forlagid_add_ebook_link', 11)
  * Displays a custom message with links to the app and browser for audio books in a customer's order, if any exist.
  * 
  * forlagid_add_audiobook_link() is a function that iterates through all items in a customer's order.
- * If an item is an audiobook (detected by the 'pa_gerd' meta data having a value of 'hljodbok'), 
+ * If an item is an audiobook (detected by the 'pa_gerd' meta data having a value of 'hljodbok'),
  * a predefined HTML message is echoed to the user. This message includes links to an app and a web application 
  * where the audiobook can be streamed.
  * 
@@ -1080,7 +1047,7 @@ function forlagid_force_continue_shopping_shop_page($link): string
 
 add_filter('woocommerce_continue_shopping_redirect', 'forlagid_force_continue_shopping_shop_page');
 
-//Includes
+    //Includes
 include_once('inc/class-forlagid-audiobooks.php');
 
 add_filter('validate_username', 'custom_validate_username', 10, 2);

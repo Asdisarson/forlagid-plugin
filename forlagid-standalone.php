@@ -30,11 +30,11 @@ add_action('plugins_loaded', function() {
  */
 
 /**
- * Add a custom interval for 5 minutes.
+ * Adds a 5-minute interval schedule to the given schedules array.
  *
- * @var array $schedules The current schedules
+ * @param array $schedules An array of schedules.
  *
- * @return array
+ * @return array The updated schedules array.
  */
 function forlagid_add_5min_interval( $schedules ) {
 
@@ -54,7 +54,9 @@ add_filter( 'cron_schedules', 'forlagid_add_5min_interval' );
 register_activation_hook( __FILE__, 'forlagid_add_connection_fix_cron' );
 
 /**
- * Add cron every 5 minutes to attempt to fix errors, if any.
+ * Adds a cron job to fix connection errors with Forlagid.
+ *
+ * @return void
  */
 function forlagid_add_connection_fix_cron() {
     if ( ! wp_next_scheduled( 'forlagid_attempt_connection_fix' ) ) {
@@ -63,7 +65,14 @@ function forlagid_add_connection_fix_cron() {
 }
 
 /**
- * Grab all errors and try to call again in order to fix problem.
+ * Attempts to fix connection errors with Foldagid Hlusta.
+ *
+ * Retrieves the list of connection errors from the Foldagid Hlusta plugin, and
+ * iterates through each error. If the error is related to an audiobook, it
+ * attempts to add the audiobook to the user's library by calling the
+ * `add_audiobook_to_user` method of the `Forlagid_Audiobooks` class.
+ *
+ * @return void
  */
 function forlagid_attempt_fix_connection_error() {
     $errors = get_option( 'foldagid_hlusta_errors', array() );
@@ -83,13 +92,19 @@ function forlagid_attempt_fix_connection_error() {
 add_action( 'forlagid_attempt_connection_fix', 'forlagid_attempt_fix_connection_error' );
 
 /**
- * Store the request which threw an error.
+ * Handles connection errors for Forlagid Hlusta.
  *
- * @param $type
- * @param $id
- * @param $order_id
- * @param $item_id
- * @param $product_id
+ * This function adds a connection error to the list of errors if it is a new error,
+ * or increments the number of tries for an existing error. If an error has been tried
+ * more than 3 times, it is removed from the list.
+ *
+ * @param string $type The type of error.
+ * @param string $id The ID of the error.
+ * @param int $order_id The ID of the order associated with the error.
+ * @param int $item_id The ID of the item associated with the error.
+ * @param int $product_id The ID of the product associated with the error.
+ *
+ * @return void
  */
 function forlagid_hlusta_connection_error( $type, $id, $order_id, $item_id, $product_id ) {
     $errors = get_option( 'foldagid_hlusta_errors', array() );
